@@ -1,4 +1,5 @@
 ﻿using JsonWebTokenApi.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -15,18 +16,30 @@ namespace JsonWebTokenApi.Controllers
     {
         public static UsuarioModel usuario = new UsuarioModel();
         private readonly IConfiguration _configuration;
-
-        public AuthController(IConfiguration configuration)
+        public IUserService _userService { get; }
+        public AuthController(IConfiguration configuration, IUserService userService)
         {
             _configuration = configuration;
+            _userService = userService;
         }
 
+        [HttpGet, Authorize]
+        public ActionResult<string> GetMe()
+        {
+            var userName = _userService.GetMyName();
+
+            return Ok(userName);
+
+            //var userName = User?.Identity?.Name;
+            //var userName2 = User.FindFirstValue(ClaimTypes.Name);
+            //var role = User.FindFirstValue(ClaimTypes.Role);
+            //return Ok(new {userName, userName2, role});
+        }
 
         [HttpPost("register")]
         public async Task<ActionResult<UsuarioModel>> Register(UsuarioDTO request)
         {
             CreatePasswordHash(request.Senha, out byte[] passwordHash, out byte[] passwordSalt);
-
 
             usuario.Username = request.NomeUsuario;
             usuario.PasswordHash = passwordHash;
@@ -51,7 +64,8 @@ namespace JsonWebTokenApi.Controllers
         {
             List<Claim> claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Name, usuario.Username)
+                new Claim(ClaimTypes.Name, usuario.Username),
+                new Claim(ClaimTypes.Role, "Admin")
             };
 
             var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value));
