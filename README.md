@@ -78,3 +78,5 @@ O diagrama a seguir mostra em bem alto nivel como funciona a obtenção de um to
 2 - Servidor OAuth retorna o token JWT
 3 - Cliente usa esse token JWT e obtem acesso à recursos na API
 ````
+
+README Em trabalho... Novas anotações serão adicionadas 
