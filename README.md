@@ -78,5 +78,10 @@ O diagrama a seguir mostra em bem alto nivel como funciona a obtenção de um to
 2 - Servidor OAuth retorna o token JWT
 3 - Cliente usa esse token JWT e obtem acesso à recursos na API
 ````
+## Itens de um token
+- **Aud**: Essa Claim do Token JWT refere aos grupos de recursos que devem aceitar esse token
+- **client_Id**: Refere a aplicação cliente que está requisitando recursos do grupo de recursos.
+- **scope**: Um Scope é o mecanismo para limitar o acesso da aplicação para uma conta de usuario. Uma aplicação pode solicitar um ou mais escopos, e essa informação é representada para o usuario na tela, e o **token de acesso recebido vai ser limitado aos scopes apresentados.**
+- **iss**: Essa claim identifica quem pediu o JWT. O Processamento dessa claim geralmente é uma aplicação específica. Esse valor ‘iss’ é case sensitive e contem um valor Uri, seu uso é opcional
 
 README Em trabalho... Novas anotações serão adicionadas 
