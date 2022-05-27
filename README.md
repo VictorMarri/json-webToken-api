@@ -84,4 +84,127 @@ O diagrama a seguir mostra em bem alto nivel como funciona a obtenção de um to
 - **scope**: Um Scope é o mecanismo para limitar o acesso da aplicação para uma conta de usuario. Uma aplicação pode solicitar um ou mais escopos, e essa informação é representada para o usuario na tela, e o **token de acesso recebido vai ser limitado aos scopes apresentados.**
 - **iss**: Essa claim identifica quem pediu o JWT. O Processamento dessa claim geralmente é uma aplicação específica. Esse valor ‘iss’ é case sensitive e contem um valor Uri, seu uso é opcional
 
-README Em trabalho... Novas anotações serão adicionadas 
+# Implementando Autenticação / Autorização
+
+A segurança de aplicações sempre foi uma das principais preocupações de times de desenvolvimento, e nos ultimos anos a autenticação de APIs vem sendo bastante discutida nas comunidades tecnicas em todo mundo.
+
+Existem N maneiras de fazemos autenticação em APIs, e uma delas, a principal, é fazendo o uso de tokens de acesso, sendo o JWT (Json Web Token) um dos padrões mis usados na atualidade.
+
+## Conceitos:
+
+Precisamos entender alguns conceitos **fundamentais** sobre a segurança de aplicações, são esses conceitos:
+
+- **Autenticação:** É o ato de identificar que o usuario diz ser quem é. Aqui validamos as credenciais de acesso que geralmente são login e senha. Também podem ser usados outros meios de identificação do usuario de um sistema, como por exemplo Biometria ou cartões de identificação.
+- **Autorização:** É o ato de verificar se o usuário **pode ou não ter acesso à um recurso ou executar determinada açõa dentro do sistema.** Nesse ponto,o usuario já foi identificado, ou seja, já foi **autenticado** previamente. Normalmente é usados Roles ou Policies para autorizarmos o acesso a determinado recurso.
+
+## Criando token JWT
+
+```csharp
+private string CreateToken(UsuarioModel usuario)
+        {
+            List<Claim> claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, usuario.Username),
+                new Claim(ClaimTypes.Role, "Admin")
+            };
+
+            var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value));
+
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            var token = new JwtSecurityToken(
+                    claims: claims,
+                    expires: DateTime.Now.AddDays(1),
+                    signingCredentials: credentials
+                 );
+
+            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+            return jwt;
+        }
+```
+
+Primeiramente precisamos passar o Model de User, nesse caso **UsuarioModel.** Aqui vamos receber todos os dados do usuario que entrar na aplicação e gerar o token.
+
+```csharp
+namespace JsonWebTokenApi.Models
+{
+    public class UsuarioModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public byte[] PasswordHash { get; set; }
+        public byte[] PasswordSalt { get; set; }
+    }
+}
+```
+
+Primeiramente precisamos colocar informações acerca dos **Roles, ou seja, os perfis dos usuarios. Isso são os Claims:**
+
+```csharp
+List<Claim> claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, usuario.Username),
+                new Claim(ClaimTypes.Role, "Admin") // ou usuario.Role
+            };
+```
+
+Precisamos de pegar nossa chave que colocamos no AppSettings e transformar ela num array de Bytes
+
+```csharp
+var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_configuration.GetSection("AppSettings:Token").Value));
+```
+
+Criamos as credenciais que a aplicação vai usar pra encriptar e desencriptar o token de acesso:
+
+```csharp
+var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+```
+
+Agora, com essas duas coisas setadas, podemos criar nosso token de fato.
+
+```csharp
+var token = new JwtSecurityToken(
+                    claims: claims,
+                    expires: DateTime.Now.AddDays(1),
+                    signingCredentials: credentials
+                 );
+```
+
+Agora que temos todos os dados do token criados, precisamos de fato, agora, criar o token:
+
+```csharp
+var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+
+return jwt; //Retornando o token
+```
+
+## Configurando Startup/Program.cs (.NET 6)
+
+Precisamos agora, colocar, primeiramente o middleware de **Autenticação.**
+
+```csharp
+app.UseAuthentication();
+app.UseAuthorization(); 
+
+//Lembrando que SEMPRE o UseAuthentication vem PRIMEIRO QUE o Authorization
+```
+
+Vamos precisar condifigurar tambem a checagem do token por meio do middleware:
+
+```csharp
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetSection("AppSettings:Token").Value)),
+        ValidateIssuer = false,
+        ValidateAudience = false
+    };
+});
+```
+
+Onde:
+
+- ValidateIssuerSigningKey: Aqui ativamos a validação da chave
+- IssuerSigningKey: Aqui de fato estamos validando a chave, desencriptando ela e verificando
